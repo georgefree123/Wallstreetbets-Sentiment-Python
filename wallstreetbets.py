@@ -5,10 +5,8 @@ import time
 import re
 import json
 from bs4 import BeautifulSoup
-import pymongo
 from datetime import datetime
 import tzlocal
-import mysql.connector
 import nltk_wsbs
 from collections import Counter
 import itertools
