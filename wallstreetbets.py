@@ -295,7 +295,6 @@ posts=RedditAPI().get_recent_posts(25)
 # define headings for both post and comment csv's
 post_csv_heading=['id','title','content', 'author_id', 'author', 'flair', 'likes', 'created', 'sentiment', 'comment a', 'a', 'comment b', 'b', 'comment c', 'c', 'sum comment sentiment']
 comments_csv_heading=['id', 'body', 'likes', 'awards', 'created', 'controversiality', 'parent_id', 'comment ticker a', 'comment occurances a', 'comment ticker b', 'comment occurances b', 'comment ticker c', 'comment occurances c']
-#comments_csv_heading=['id', 'post_id', 'body', 'likes', 'awards', 'num_comments', 'replies', 'created', 'controversiality', 'parent_id', 'link_id', 'comment ticker a', 'comment occurances a', 'comment ticker b', 'comment occurances b', 'comment ticker c', 'comment occurances c']
 
 # create 2d list to store post information (opposed to comment)
 post_information=[post_csv_heading]
