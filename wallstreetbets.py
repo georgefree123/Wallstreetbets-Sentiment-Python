@@ -9,7 +9,7 @@ import pymongo
 from datetime import datetime
 import tzlocal
 import mysql.connector
-import new_nlp
+import nltk_wsbs
 from collections import Counter
 import itertools
 from functools import reduce
@@ -24,16 +24,6 @@ t4_ = message
 t5_ = subreddit
 t6_ = award
 '''
-
-# why are comments being saved to csvs multiple times? This is big time broken. Different comments in teh same CSV - makes no sense
-# check names of variables etc.
-# make sure written well
-# add meaningful comments
-# publish to GitHub
-
-# get the latest posts
-# for each post get the tickers and sentiment of the post, then get the comments and do the same things
-
 class RedditAPI:
    def request_data(self, url):
       headers = {'User-Agent': 'Mozilla/5.0'}
@@ -396,12 +386,3 @@ for post in posts['data']['children']:
 CreateCSV.create_csv(data=post_information, prefix='posts')
 print("Task Complete!")
 
-
-         
-# A: create request_data(), get_recent_posts(), parse_post(), convert_unix_timestamp() (line 326)
-# B: Tickers
-# C: Comments
-# D: Sentiment
-# E: CSV
- 
- 
