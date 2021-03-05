@@ -22,42 +22,41 @@ t4_ = message
 t5_ = subreddit
 t6_ = award
 '''
+
+CSV_DIR='output_csv'
+
 class RedditAPI:
    def request_data(self, url):
-      headers = {'User-Agent': 'Mozilla/5.0'}
+      headers = {'User-Agent': 'python:1:1.0 (by /u/georgefree123)'}
       data = requests.get(url, headers=headers).json()
       return data
 
+   def get_recent_posts(self, count, sort='new', subreddit='wallstreetbets'):
+      '''
+      get x most recent posts
+      '''
+      url="https://api.reddit.com/r/{}/new?limit={}".format(subreddit, count)
+      return self.request_data(url)
+   
+   def get_post_comments(self, post_id, subreddit='wallstreetbets'):
+      '''
+      grab comments for a particular post (providing the post_id)
+      '''
+      url="https://api.reddit.com/r/{}/comments/{}".format(subreddit,post_id)
+      return self.request_data(url)
+   
    def convert_unix_timestamp(timestamp):
       unix_timestamp=float(timestamp)
       local_timezone = tzlocal.get_localzone()
       local_time = datetime.fromtimestamp(unix_timestamp, local_timezone)
       local=(local_time.strftime("%d/%m/%Y %H:%M:%S"))
-      remote_time = datetime.utcfromtimestamp(unix_timestamp)
-      remote=(remote_time.strftime("%Y-%m-%d %H:%M:%S.%f+00:00 (UTC)"))
-      return [local, remote]
-
-   def get_recent_posts(self, count, sort='new', subreddit='wallstreetbets'):
-      url="https://api.reddit.com/r/{}/new?limit={}".format(subreddit, count)
-      return self.request_data(url)
-   
-   def comment_func(self, post_id, subreddit='wallstreetbets'):
-      # grab comments for a particular post (providing the post_id)
-      # we only want the short name (omit t3_x)
-      try:
-         post_id=post_id.split("_")[1] # this line isn't needed
-      except:
-         post_id=post_id
-         
-      url="https://api.reddit.com/r/{}/comments/{}".format(subreddit,post_id)
-      return self.request_data(url)
-   
+      return local
 
 class ParseComments:
    def convert_comment_dict(self, comment_dict):
-      # think it's a case that the key doesn't exist
-      # RUN through the json and see what the key suggests
-      
+      '''
+      extract comment information that we're interested in, and return as a dictionary
+      '''
       id=comment_dict['id'] if comment_dict['id'] != None or "" else "-"
       body=comment_dict['body'] if comment_dict['body'] != None or "" else "-"
       likes=comment_dict['likes'] if comment_dict['likes'] != None or "" else "-"
@@ -85,12 +84,11 @@ class ParseComments:
       # extracts relevant fields from a child of "children" in the raw json
       comment_data=child['data']
       # replies are replies made to this specific comment
-
       replies=[]
       if "replies" in comment_data:
          if comment_data['replies'] != "":
             replies=comment_data['replies']
-      # Conver tthe dictionary response to a pruned list
+      # Convert the dictionary response to a pruned list
       reply_info=self.convert_comment_dict(comment_data)
       
       return reply_info
@@ -113,15 +111,13 @@ class ParseComments:
             continue
 
          for child in children['data']['children']:
-            # we're ignoring more comments for now - can get them using a post
-            # API call if reqd, however. Only used for hidden comments
-            if child['kind'] == "t3" or child['kind'] == 'more':
+            # check the item in question is a comment, not a post of "more", etc.
+            if child['kind'] != "t1":
                continue
             # get reply information for child
             reply_data=self.extract_relevant(child)
 
             # isolate replies to the current comment (child)
-            
             replies=reply_data['replies']
             # isolate all but replies from reply_data
             information = {k: reply_data[k] for k in list(reply_data)[:7]}
@@ -146,8 +142,7 @@ class ParseComments:
          # run though each child
          for child in children:
             # check to see if the information corresponds to a comment (t1_)
-            # or a post (t3_) - we're only interested in comments
-            if child['kind'] == "t3" or child['kind'] == 'more':
+            if child['kind'] != "t1":
                continue
             # isolate the information we're concerned with.
             # Note: this only acts on an original comment
@@ -165,49 +160,21 @@ class ParseComments:
 
 class ParsePost():
    def parse_post(post_json):
-      # parse Reddit post json
-      try:
-          id=post_json['id']
-      except:
-          id=None
-          
-      try:
-         title=post_json['title']
-      except:
-         title=None
-         
-      try:
-         content=post_json['selftext']
-      except:
-         content=None
+      '''
+      extract relevant aspects of the post information
+      '''
+      # parse Reddit post JSON
+      id=post_json['id']
+      title=post_json['title']
+      content=post_json['selftext']
+      author_id=post_json['author_fullname']
+      author=post_json['author']
+      flair=post_json['link_flair_text']
+      likes=post_json['likes']
+      # convert Unix timestamp
+      created=post_json['created']
+      created=RedditAPI.convert_unix_timestamp(created)
 
-      try:
-          author_id=post_json['author_fullname']
-      except:
-          author_id=None
-          
-      try:
-         author=post_json['author']
-      except:
-         author=None
-
-      try:
-         flair=post_json['link_flair_text']
-      except:
-         flair=None
-         
-      try:
-         likes=post_json['likes']
-      except:
-         likes=None
-
-      try:
-         # convert Unix timestamp
-         created=post_json['created']
-         created=RedditAPI.convert_unix_timestamp(created)[0]
-      except:
-         created=None
-         
       values={
          "id": id,
          "title": title,
@@ -225,12 +192,16 @@ class ParsePost():
 
 class Ticker:
    def list_files(self, folder='./tickers'):
-      # list all of the files in the ./tickers directory
+      '''
+      list all of the files in the ./tickers directory
+      '''
       return glob.glob("{}/*.csv".format(folder))
       
    def get_tickers(self, csv_path):
-      # just grab all of ticker symbols from
-      # the inputted csv and store in a list
+      '''
+      grab all of ticker symbols from
+      the inputted csv and store in a list
+      '''
       entries=[]
       with open(csv_path) as csv_file:
          for row in csv_file:
@@ -239,6 +210,9 @@ class Ticker:
       return entries
    
    def load_tickers(self):
+      '''
+      load tickers
+      '''
       # get all of the files containing tickers
       ticker_files=self.list_files()
       # load all of the ticker info into an array
@@ -252,10 +226,10 @@ class Ticker:
       '''
       Used to check which tickers exist in the
       inputted string (Reddit post/comment body)
+      ---
+         where tickers is an array of ticker symbols
+         and string is the string to check for tags
       '''
-      # where tickers is an array of ticker symbols
-      # and string is the string to check for tags
-
       # some tickers are words/acronyms, so you might wish to skip those out
       banned_tags=["CEO", "VERY", "IRS", "GOOD", "IMO", "ALL", "YOLO", "A","E","I" "U"]
       for item in banned_tags:
@@ -276,17 +250,24 @@ class Ticker:
 
 class CreateCSV:
    def create_csv(data, prefix=None, output_name=None):
-      # create a csv from a 2d list
+      '''
+      create a csv from a 2d list
+      '''
       now = datetime.now()
       # custom naming structure - if a name isn't specified add in a timestamp
-      output_name = "{}_{}.csv".format(prefix, now.strftime("%d-%m-%Y_%H-%M-%S")) if output_name is None else output_name
+      output_name = "{}/{}_{}.csv".format(CSV_DIR,prefix, now.strftime("%d-%m-%Y_%H-%M-%S")) if output_name is None else output_name
       # write rows    
       with open(output_name, "w", encoding='utf-8') as my_csv:
          csv_writer=csv.writer(my_csv, delimiter=',')
          csv_writer.writerows(data)
 
+# ---
 
-
+# user verification
+print("\n\n")
+print("** ATTENTION: This code comes with ZERO guarantees... **")
+input("     -> Press Enter to acknowledge & accept...")
+print("\n---\nWorking...")
 # Get the top 100 posts - returns JSON data
 posts=RedditAPI().get_recent_posts(25)
 
@@ -294,11 +275,11 @@ posts=RedditAPI().get_recent_posts(25)
 post_csv_heading=['id','title','content', 'author_id', 'author', 'flair', 'likes', 'created', 'sentiment', 'comment a', 'a', 'comment b', 'b', 'comment c', 'c', 'sum comment sentiment']
 comments_csv_heading=['id', 'body', 'likes', 'awards', 'created', 'controversiality', 'parent_id', 'comment ticker a', 'comment occurances a', 'comment ticker b', 'comment occurances b', 'comment ticker c', 'comment occurances c']
 
-# create 2d list to store post information (opposed to comment)
+# create 2d list to store post information (opposed to comment)
 post_information=[post_csv_heading]
 
 # instantiate our sentiment analyser
-constructed_classifier=new_nlp.GetSentiment().check_sentiment()
+constructed_classifier=nltk_wsbs.GetSentiment().check_sentiment()
 
 # Load tickers
 tickers=Ticker().load_tickers()
@@ -317,10 +298,10 @@ for post in posts['data']['children']:
    # grab the top three tickers for the post
    top_three_posts=dict(itertools.islice(Counter(post_tickers).items(), 3))
    # get the sentiment of the post
-   post_sentiment=new_nlp.GetSentiment().get_sentiment(inputStr=post_elements['content'], classifier_obj=constructed_classifier)   
+   post_sentiment=nltk_wsbs.GetSentiment().get_sentiment(inputStr=post_elements['content'], classifier_obj=constructed_classifier)   
    
    # get the comments associated with the post
-   comments_json=RedditAPI().comment_func(post_id=post_elements['id'])
+   comments_json=RedditAPI().get_post_comments(post_id=post_elements['id'])
    comments=ParseComments().get_comment_info(comments_json)
    # placeholder for summed (overall) comment sentiment
    comment_sentiments=0
@@ -334,7 +315,7 @@ for post in posts['data']['children']:
       comment_tickers=Ticker.check_for_tickers(tickers, single_comment['body'])
       total_tickers=total_tickers+comment_tickers
       # get the sentiment of the comment (either +ve (1) or -ve (-1))
-      comment_sentiment=new_nlp.GetSentiment().get_sentiment(inputStr=single_comment['body'], classifier_obj=constructed_classifier)
+      comment_sentiment=nltk_wsbs.GetSentiment().get_sentiment(inputStr=single_comment['body'], classifier_obj=constructed_classifier)
       sentiment_val=1 if (comment_sentiment == 'Positive') else -1
       comment_sentiments += sentiment_val
       # flatten comment dict to list so we can write to csv
@@ -344,7 +325,7 @@ for post in posts['data']['children']:
          comments_as_list=[]   
       # Get the top three most mentioned tickers in the comment
       top_three_tickers=dict(itertools.islice(Counter(comment_tickers).items(), 3))
-      # flatten the tickers dict to list so we can write to csv
+      # flatten the tickers dict to list so we can write to csv
       try:
          top_three_flat=list(reduce(lambda x, y: x + y, top_three_tickers.items()))
       except: 
@@ -368,7 +349,7 @@ for post in posts['data']['children']:
    except:
       top_tickers_flat=[]
       
-   # make sure array has 6 elements (even if empty), otherwise csv order is messed up
+   # make sure array has 6 elements (even if empty), otherwise csv order is messed up
    # 6=(3 top tickers)*2
    while (len(top_tickers_flat) < 6):
          top_tickers_flat.append('')
@@ -382,4 +363,3 @@ for post in posts['data']['children']:
 # need to add a header to this, too. Even if it's pushing an array with the headings in
 CreateCSV.create_csv(data=post_information, prefix='posts')
 print("Task Complete!")
-
